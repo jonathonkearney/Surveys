@@ -9,6 +9,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 library(tidyverse)
 library(gt)
+library(gtExtras)
 
 # ****************
 #If the standardized residual is greater than 2 or less than -2 in absolute value, then the cell is considered to be significantly contributing to the chi-squared statistic at a 5% level of significance.
@@ -89,6 +90,15 @@ sig_table <- function(rowData,data, ...){
   gt <- gt %>% cols_label(.list = newcolnames) %>% 
     cols_align(columns = everything(),
              align = "left")
+  
+  
+  gt <- gt %>%
+    data_color(
+      columns = vars(everything()),
+      colors = "red",
+      apply_to = cells,
+      pattern = grepl("↑", .)
+    )
   
   return(gt)
 }  
