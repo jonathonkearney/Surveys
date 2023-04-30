@@ -57,7 +57,25 @@ addWorksheet(wb, sheetName = "Sheet 1")
 for (i in 1:length(therows)) {
   sigtable <- sig_table(therows[[i]], thedata, thecols)
   
-  writeDataTable(wb, "Sheet 1", sigtable, startRow = (6 + (i-2)*5), tableStyle = "TableStyleLight1")
+  rownum <- (((i-2) * 7) + 8)
+  
+  writeData(wb, "Sheet 1", "Title Goes In This Row", startCol = 1, startRow = rownum)
+  
+  currentspancell <- 2 #to keep track of which cell to put the span in
+  
+  #go through columns and add span titles
+  for (j in 1:length(thecols)) {
+    
+    spanlength <- length(unique(thedata[[thecols[[j]]]]))
+    
+    writeData(wb, "Sheet 1", "Span Title", startCol = currentspancell, startRow = rownum  + 1)
+    
+    currentspancell <- currentspancell + spanlength
+  }
+  
+  writeDataTable(wb, "Sheet 1", sigtable, startRow = rownum + 2,
+                 tableStyle = "TableStyleLight1",
+                 withFilter = FALSE)
 }
 
 up_arrow_format <- createStyle(fontColour = "blue")
