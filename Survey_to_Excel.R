@@ -52,30 +52,75 @@ therows <- list("gear", "cyl")
 filename <- "test.xlsx"
 
 wb <- createWorkbook()
+
+modifyBaseFont(wb, fontSize = 11, fontName = "Calibri")
+
 addWorksheet(wb, sheetName = "Sheet 1")
+
+#--------------------------
 
 for (i in 1:length(therows)) {
   sigtable <- sig_table(therows[[i]], thedata, thecols)
+
+  boldstyle <- createStyle(textDecoration = "Bold")
   
-  rownum <- (((i-2) * 7) + 8)
+  headerrow <- (((i-2) * 7) + 8)
+  spanrow <- headerrow + 1
+  tableheaderrow <- spanrow + 1
+  tablerowsstart <- tableheaderrow + 1
+  tablerowsend <- tablerowsstart + length(unique(thedata[[therows[[i]]]]))
+  findtablecolsend <- function(){
+    x <- 1
+    for (j in 1:length(thecols)) {
+      x <- x + length(unique(thedata[[thecols[[j]]]]))
+    }
+    return(x)
+  }
+  tablecolsend <- findtablecolsend()
+  print(tablecolsend)
   
-  writeData(wb, "Sheet 1", "Title Goes In This Row", startCol = 1, startRow = rownum)
+  ######## ADD HEADER ########
   
-  currentspancell <- 2 #to keep track of which cell to put the span in
+  writeData(wb, "Sheet 1", paste(str_to_title(therows[[i]]), " by Banner"), startCol = 1, startRow = headerrow)
   
-  #go through columns and add span titles
+  addStyle(wb, "Sheet 1", cols = 1, rows = headerrow, style = boldstyle)
+
+  ######## ADD SPANS ########
+  
+  spanstart <- 2
+  spanend <- 0
+  
   for (j in 1:length(thecols)) {
     
+    writeData(wb, "Sheet 1", str_to_title(thecols[[j]]), startCol = spanstart, startRow = spanrow)
+    
     spanlength <- length(unique(thedata[[thecols[[j]]]]))
+    spanend <- (spanstart+spanlength -1)
+
+    addStyle(wb, "Sheet 1", cols = spanstart:spanend, rows = spanrow, style = boldstyle)
     
-    writeData(wb, "Sheet 1", "Span Title", startCol = currentspancell, startRow = rownum  + 1)
-    
-    currentspancell <- currentspancell + spanlength
+    spanstart <- spanend + 1
   }
   
-  writeDataTable(wb, "Sheet 1", sigtable, startRow = rownum + 2,
-                 tableStyle = "TableStyleLight1",
-                 withFilter = FALSE)
+  ######## ADD TABLE ########
+  
+  writeData(wb, "Sheet 1", sigtable, startRow = tableheaderrow)
+  
+  colnames <- sub(".*\\.", "", colnames(sigtable))
+  for (j in 1:length(colnames)) {
+    writeData(wb, "Sheet 1", colnames[[j]], startCol = j, startRow = tableheaderrow)
+  }
+  
+  writeData(wb, "Sheet 1", "Column %", startCol = 1, startRow = tableheaderrow)
+  
+  addStyle(wb, "Sheet 1", cols = 1:tablecolsend, rows = tableheaderrow, style = boldstyle)
+  
+  shadestyle <- createStyle(fgFill = "#d5dbda")
+  
+  for (i in seq(from = tablerowsstart, to = tablerowsend, by = 2)) {
+    addStyle(wb, "Sheet 1", cols = 1:tablecolsend, rows = i, style = shadestyle)
+  }
+  
 }
 
 up_arrow_format <- createStyle(fontColour = "blue")
