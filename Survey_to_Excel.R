@@ -1,5 +1,6 @@
 library(tidyverse)
 library(openxlsx)
+library(scales)
 
 #--------------------------
 #If the standardized residual is greater than 2 or less than -2 in absolute value, then the cell is considered to be significantly contributing to the chi-squared statistic at a 5% level of significance.
@@ -26,6 +27,8 @@ sig_table <- function(rowData,data, cols){
     
     xtabs <- apply(xtabs, 2, round, digits = 2)
     
+    xtabs <- xtabs * 100
+    
     mytable <- format(xtabs, justify = "right")
     mytable[std_res > 2] <- paste(mytable[std_res > 2], intToUtf8(8593)) 
     mytable[std_res < -2] <- paste(mytable[std_res < -2], intToUtf8(8595))
@@ -39,7 +42,28 @@ sig_table <- function(rowData,data, cols){
   
   table <- do.call(cbind, tablelist)
   
-  table <- tibble::rownames_to_column(table, rowData)
+  table <- tibble::rownames_to_column(table, "Column %")
+
+  nettable <- as.data.frame(prop.table(table(data[[rowData]])))
+  colnames(nettable) <- c("Column %", "NET")
+  
+  nettable$NET <- round(nettable$NET ,digit=2)
+  nettable$NET <- nettable$NET * 100
+  
+  
+  table <- full_join(table,nettable, by = "Column %")
+  
+  table <- table %>% select(NET, everything())
+  
+  table <- table %>% relocate(NET)
+  table <- table %>% relocate("Column %")
+  
+  table$NET <- format(table$NET, justify = "right")
+  
+  for (i in 2:length(table)) { #starts at 2 to skip first column
+    table[,i] <- str_trim(table[,i])
+    table[,i] <- gsub("(\\d)(?!.*\\d)", "\\1%", table[,i], perl = TRUE)
+  }
   
   return(table)
 }  
@@ -63,21 +87,15 @@ for (i in 1:length(therows)) {
   sigtable <- sig_table(therows[[i]], thedata, thecols)
 
   boldstyle <- createStyle(textDecoration = "Bold")
+  shadestyle <- createStyle(fgFill = "#d5dbda")
+  boldandshadestyle <- createStyle(textDecoration = "Bold", fgFill = "#d5dbda")
   
   headerrow <- (((i-2) * 7) + 8)
   spanrow <- headerrow + 1
   tableheaderrow <- spanrow + 1
   tablerowsstart <- tableheaderrow + 1
   tablerowsend <- tablerowsstart + length(unique(thedata[[therows[[i]]]]))
-  findtablecolsend <- function(){
-    x <- 1
-    for (j in 1:length(thecols)) {
-      x <- x + length(unique(thedata[[thecols[[j]]]]))
-    }
-    return(x)
-  }
-  tablecolsend <- findtablecolsend()
-  print(tablecolsend)
+  tablecolsend <- length(sigtable)
   
   ######## ADD HEADER ########
   
@@ -87,7 +105,7 @@ for (i in 1:length(therows)) {
 
   ######## ADD SPANS ########
   
-  spanstart <- 2
+  spanstart <- 3
   spanend <- 0
   
   for (j in 1:length(thecols)) {
@@ -115,11 +133,14 @@ for (i in 1:length(therows)) {
   
   addStyle(wb, "Sheet 1", cols = 1:tablecolsend, rows = tableheaderrow, style = boldstyle)
   
-  shadestyle <- createStyle(fgFill = "#d5dbda")
+  addStyle(wb, "Sheet 1", cols = 1, rows = tablerowsstart:tablerowsend, style = boldstyle)
   
   for (i in seq(from = tablerowsstart, to = tablerowsend, by = 2)) {
     addStyle(wb, "Sheet 1", cols = 1:tablecolsend, rows = i, style = shadestyle)
+    addStyle(wb, "Sheet 1", cols = 1, rows = i, style = boldandshadestyle)
   }
+  
+  
   
 }
 
