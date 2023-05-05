@@ -52,7 +52,7 @@ tables_maker <- function(sheet){
   for (i in 1:length(sheet[[1]])) {
     tabledata <- tabledata_maker(sheet[[1]][[i]], sheet[[2]], sheet[[3]])
     table_printer(tabledata, sheet[[4]], currentrow, sheet[[1]][[i]])
-    currentrow <- currentrow + nrow(tabledata) + 2
+    currentrow <- currentrow + nrow(tabledata) + 4
   }
   
 }
@@ -146,44 +146,38 @@ table_printer <- function(sigtable, sheetname, currentrow, rowname){
   currentspan <- ""
   
   for (j in 1:length(spans)) {
-    
     #get the first text before the dot
-    if(j == 1){
-      currentspan <- spans[j]
-    }
+    if(j == 1){ currentspan <- spans[j]}
     else{
-      if(spans[j] == currentspan){
-        spans[j] <- ""
-      }
-      else{
-        currentspan <- spans[j]
-      }
+      if(spans[j] == currentspan){spans[j] <- ""}
+      else{currentspan <- spans[j]}
     }
   }
   for (j in 1:length(spans)) {
-
     writeData(wb, sheetname, str_to_title(spans[j]), startCol = j+2, startRow = spanrow)
   }
 
-    ####### ADD TABLE ########
+  ####### ADD TABLE ########
 
-    writeData(wb, sheetname, sigtable, startRow = tableheaderrow)
+  writeData(wb, sheetname, sigtable, startRow = tableheaderrow)
 
-    colnames <- sub(".*\\.", "", colnames(sigtable))
-    for (j in 1:length(colnames)) {
-      writeData(wb, sheetname, colnames[[j]], startCol = j, startRow = tableheaderrow)
-    }
+  colnames <- sub(".*\\.", "", colnames(sigtable))
+  for (j in 1:length(colnames)) {
+    writeData(wb, sheetname, colnames[[j]], startCol = j, startRow = tableheaderrow)
+  }
 
-    writeData(wb, sheetname, "Column %", startCol = 1, startRow = tableheaderrow)
+  writeData(wb, sheetname, "Column %", startCol = 1, startRow = tableheaderrow)
+  
+  ####### ADD STYLES ########
+  
+  addStyle(wb, sheetname, cols = 1:tablecolsend, rows = tableheaderrow, style = boldstyle)
+  addStyle(wb, sheetname, cols = 1:tablecolsend, rows = spanrow, style = boldstyle)
+  addStyle(wb, sheetname, cols = 1, rows = tablerowsstart:tablerowsend, style = boldstyle)
 
-    addStyle(wb, sheetname, cols = 1:tablecolsend, rows = tableheaderrow, style = boldstyle)
-
-    addStyle(wb, sheetname, cols = 1, rows = tablerowsstart:tablerowsend, style = boldstyle)
-
-    for (i in seq(from = tablerowsstart, to = tablerowsend, by = 2)) {
-      addStyle(wb, sheetname, cols = 1:tablecolsend, rows = i, style = shadestyle)
-      addStyle(wb, sheetname, cols = 1, rows = i, style = boldandshadestyle)
-    }
+  for (i in seq(from = tablerowsstart, to = tablerowsend, by = 2)) {
+    addStyle(wb, sheetname, cols = 1:tablecolsend, rows = i, style = shadestyle)
+    addStyle(wb, sheetname, cols = 1, rows = i, style = boldandshadestyle)
+  }
     
 }
 
