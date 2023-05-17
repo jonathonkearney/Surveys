@@ -17,12 +17,17 @@ filename <- "test.xlsx"
 
 wb <- createWorkbook()
 
+addWorksheet(wb, sheetName = "Table of Contents")
+writeData(wb, sheet =  "Table of Contents", x = "Table of Contents", startCol = 1, startRow = 1)
+addStyle(wb, "Table of Contents", cols = 1, rows = 1, style = createStyle(fontSize = 16))
+
 sheet1 <- list(list("gear", "cyl"), mtcars, list("vs", "am", "carb"), "mtcars")
 addWorksheet(wb, sheetName = sheet1[[4]])
 sheet2 <- list(list("eye_color"), starwars, list("homeworld", "gender"), "starwars")
 addWorksheet(wb, sheetName = sheet2[[4]])
 sheet3 <- list(list("relig"), gss_cat, list("partyid", "race", "marital"), "gss_cat")
 addWorksheet(wb, sheetName = sheet3[[4]])
+
 
 sheets <- list(sheet1, sheet2, sheet3)
 
@@ -42,10 +47,9 @@ down_arrow_format <- createStyle(fontColour = "red")
 sheets_maker <- function(sheetList){
   
   for (i in 1:length(sheetList)) {
-    
-    tables_maker(sheetList[[i]])  
+    tables_maker(sheetList[[i]])
   }
-  
+  toc_link_maker(sheetList)
 }
 
 #--------------------------
@@ -58,7 +62,7 @@ tables_maker <- function(sheet){
     
     tabledata <- tabledata_maker(sheet[[1]][[i]], sheet[[2]], sheet[[3]])
     table_printer(tabledata, sheet[[4]], currentrow, sheet[[1]][[i]])
-    currentrow <- currentrow + nrow(tabledata) + 4
+    currentrow <- currentrow + nrow(tabledata) + 5
   }
   
 }
@@ -67,6 +71,9 @@ tables_maker <- function(sheet){
 
 tabledata_maker <- function(rowData, data, cols){
 
+  #would be good to have an overall and a net column
+  #The below calculation doesn't do False Deiscovery Rate Correction, 
+  #which is when the significance level is adjusted when you do multiple comparisons 
   
   # tablelist <- list()
   table <- data.frame()
@@ -75,7 +82,17 @@ tabledata_maker <- function(rowData, data, cols){
     
     xtabs <- xtabs(~data[[rowData]]+data[[cols[[i]]]],data=data)
     
-    chisq <- chisq.test(xtabs)
+    #If 20% or more of the cells are <5, and there are no 0 rows/margins - (simulate p doesn't like rows or columns of 0)
+    #then simulate.p.value, because the sample is too small for normal chisq
+    if(any(margin.table(xtabs, 1) == 0) | any(margin.table(xtabs, 2) == 0)){
+      chisq <- chisq.test(xtabs)
+    }else if(sum(xtabs < 5)/length(xtabs) > .20){
+      chisq <- chisq.test(xtabs, simulate.p.value = TRUE)
+    }else{
+      chisq <- chisq.test(xtabs)
+    }
+    
+    # chisq <- chisq.test(xtabs)
     
     std_res <- chisq$stdres
     
@@ -87,10 +104,13 @@ tabledata_maker <- function(rowData, data, cols){
     
     #consider only applying the arrow if the cell n is larger than some amount?
     
+    #Bonferroni correction on the cutoff
+    bon_cutoff <- qnorm(p=1-((0.05/2)/(nrow(xtabs)*ncol(xtabs))))
+    
     mytable <- format(xtabs, justify = "right")
     mytable <- apply(mytable, 2, trimws)
-    mytable[std_res > 2 & std_res != "NaN"] <- paste(mytable[std_res > 2 & std_res != "NaN"], intToUtf8(8593))
-    mytable[std_res < -2 & std_res != "NaN"] <- paste(mytable[std_res < -2 & std_res != "NaN"], intToUtf8(8595))
+    mytable[std_res > bon_cutoff & std_res != "NaN"] <- paste(mytable[std_res > bon_cutoff & std_res != "NaN"], intToUtf8(8593))
+    mytable[std_res < -bon_cutoff & std_res != "NaN"] <- paste(mytable[std_res < -bon_cutoff & std_res != "NaN"], intToUtf8(8595))
     
     mytable <- as.data.frame(mytable)
     
@@ -106,20 +126,20 @@ tabledata_maker <- function(rowData, data, cols){
     
   }
   
-  nettable <- as.data.frame(prop.table(table(data[[rowData]])))
-  colnames(nettable) <- c("Column %", "NET")
+  overalltable <- as.data.frame(prop.table(table(data[[rowData]])))
+  colnames(overalltable) <- c("Column %", "Overall")
   
-  nettable$NET <- round(nettable$NET, 2)
-  nettable$NET <- nettable$NET * 100
+  overalltable$Overall <- round(overalltable$Overall, 2)
+  overalltable$Overall <- overalltable$Overall * 100
 
-  table <- full_join(table,nettable, by = "Column %")
+  table <- full_join(table,overalltable, by = "Column %")
   
-  table <- table %>% select(NET, everything())
+  table <- table %>% select(Overall, everything())
 
-  table <- table %>% relocate(NET)
+  table <- table %>% relocate(Overall)
   table <- table %>% relocate("Column %")
 
-  table$NET <- format(table$NET, justify = "right")
+  table$Overall <- format(table$Overall, justify = "right")
   
   for (i in 2:length(table)) { #starts at 2 to skip first column
     table[,i] <- str_trim(table[,i])
@@ -133,13 +153,19 @@ tabledata_maker <- function(rowData, data, cols){
 
 table_printer <- function(sigtable, sheetname, currentrow, rowname){
   
-  headerrow <- currentrow
+  tocrow <- currentrow
+  headerrow <- tocrow + 1
   spanrow <- headerrow + 1
   tableheaderrow <- spanrow + 1
   tablerowsstart <- tableheaderrow + 1
   tablerowsend <- tablerowsstart + nrow(sigtable) - 1
   tablecolsend <- length(sigtable)
-    
+   
+  ######## ADD TOC HYPERLINK ######## 
+  
+  writeFormula(wb, sheet = sheetname, startCol = 1, startRow = tocrow,
+               x = makeHyperlinkString(sheet = "Table of Contents", col = 1, row = 1, text = "Back to ToC"))
+  
   ######## ADD HEADER ########
   
   writeData(wb, sheetname, paste(str_to_title(rowname), " by Banner"), startCol = 1, startRow = headerrow)
@@ -192,6 +218,27 @@ table_printer <- function(sigtable, sheetname, currentrow, rowname){
     
 }
 
+#--------------------------
+toc_link_maker <- function(sheets){
+  
+  currentrow <- 2
+  
+  for (i in 1:length(sheets)) {
+    sheet <- sheets[i]
+    sheetname <- sheets[[i]][[4]]
+    
+    for (j in 1:length(sheet[[1]][[1]])) {
+      writeData(wb, "Table of Contents", x = sheetname, startRow = currentrow, startCol = 1)
+      
+      writeFormula(wb, sheet = "Table of Contents", startCol = 2, startRow = currentrow,
+                    x = makeHyperlinkString(sheet = sheetname, col = 1, row = 1, text = "Test"))
+      
+      currentrow <- currentrow + 1
+    }
+  }
+  
+}
+
 
 #--------------------------
 
@@ -201,42 +248,7 @@ sheets_maker(sheets)
 
 saveWorkbook(wb, filename, overwrite = TRUE)
 
-
-# 
-# 
-# 
-# 
-# xtabsTest <- xtabs(~relig + partyid ,data=gss_cat)
-# # xtabsTest <- xtabs(~gear + vs ,data=mtcars)
-# 
-# chisqTest <- chisq.test(xtabsTest)
-# 
-# xtabsTest <- prop.table(xtabsTest, margin = 2)
-# 
-# std_resTest <- chisqTest$stdres
-# 
-# xtabsTest <- apply(xtabsTest, 2, round, digits = 2)
-# 
-# xtabsTest <- xtabsTest * 100
-# 
-# #consider only applying the arrow if the cell n is larger than some amount?
-# 
-# mytable <- format(xtabsTest, justify = "right")
-# mytable <- apply(mytable, 2, trimws)
-# 
-# # mytable <- as.data.frame(mytable)
-# # std_resTest <- as.data.frame.matrix(std_resTest)
-# 
-# 
-# mytable[std_resTest > 2 & std_resTest != "NaN"] <- paste(mytable[std_resTest > 2 & std_resTest != "NaN"], intToUtf8(8593))
-# mytable[std_resTest < -2& std_resTest != "NaN"] <- paste(mytable[std_resTest < -2 & std_resTest != "NaN"], intToUtf8(8595))
-# 
-# mytable <- as.data.frame(mytable)
-# 
-# colnames(mytable) <- paste(cols[i], colnames(mytable), sep = '.')
-# 
-# mytable <- rownames_to_column(mytable, "Column %")
-
-
-
+sheet <- sheets[1]
+sheetname <- sheet[[1]][[4]]
+tablename <- sheet[[1]][[1]]
 
