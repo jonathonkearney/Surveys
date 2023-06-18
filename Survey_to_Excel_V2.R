@@ -51,34 +51,28 @@ Sheet_Maker <- function(sheet_design){
 }
 #--------------------------
 Table_Maker <- function(sheet_design, current_rowVar){
-  #have the first two columns be Overall and Net
+  
+  ########
+  #I MADE IT SO IT FILTERS THE DATA BY ROWS THAT HAVE ANSWERED THE colVars - I THINK THAT'S RIGHT
+  #IS THAT WHAT Q DOES? - i think so...
+  ########
   
   data <- sheet_design@data
+  data <- data[complete.cases(data[, unlist(sheet_design@colVars)]), ]
   
-  #Overall
-  overallTable <- as.data.frame(prop.table(table(data[[current_rowVar]])) * 100)
-  overallTable$Freq <- round(overallTable$Freq)
-  colnames(overallTable) <- c("Column %", "Overall")
-  overallTable <- format(overallTable, justify = "right")
-  overallTable <- apply(overallTable, 2, trimws)
-  
-  #Net
-  netData <- data[complete.cases(data[, unlist(sheet_design@colVars)]), ]
-  netTable <- as.data.frame(prop.table(table(netData[[current_rowVar]])) * 100)
-  netTable$Freq <- round(netTable$Freq)
-  colnames(netTable) <- c("Column %", "Net")
-  netTable <- format(netTable, justify = "right")
-  netTable <- apply(netTable, 2, trimws)
-  
-  table <- merge(overallTable, netTable, by = "Column %", all = T)
-  
-  print(table)
+  table <- as.data.frame(prop.table(table(data[[current_rowVar]])) * 100)
+  table$Freq <- round(table$Freq)
+  colnames(table) <- c("Column %", "Net")
+  table <- format(table, justify = "right")
+  table <- apply(table, 2, trimws)
   
   for (colVar in sheet_design@colVars) {
     
     subtable <- Subtable_Maker(sheet_design, current_rowVar, colVar)
     table <- merge(table, subtable, by = "Column %", all = T)
   }
+  
+  #MAYBE LOOK AT ADDING A TOTAL ROW AT THE BOTTOM
   
   return(table)
   
@@ -87,6 +81,7 @@ Table_Maker <- function(sheet_design, current_rowVar){
 Subtable_Maker <- function(sheet_design, current_rowVar, current_colVar){ 
   
   data <- sheet_design@data
+  data <- data[complete.cases(data[, unlist(sheet_design@colVars)]), ]
 
   subtable <- xtabs(~data[[current_rowVar]]+data[[current_colVar]],data=data)
   
@@ -118,19 +113,8 @@ Subtable_Maker <- function(sheet_design, current_rowVar, current_colVar){
 
 workbook <- Workbook_Maker()
 
-df <- data.frame(A = c(1, 2, NA, 4),
-                 B = c(NA, 5, 6, 7),
-                 C = c(8, 9, 10, NA),
-                 D = c(11, NA, 13, 14))
 
-# Specify the three specific columns
-specific_columns <- c("A", "B", "C")
+mtcars <- as.data.frame(mtcars)
 
-# Extract rows without missing values in specific columns
-filtered_df <- df[complete.cases(df[, specific_columns]), ]
-
-# Print the filtered dataframe
-print(filtered_df)
-
-
+write.csv(sw, file = "sw.csv")
 
