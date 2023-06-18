@@ -13,7 +13,7 @@ rm(list = ls())
 #--------------------------
 
 #--------------------------
-setClass("Sheet",
+setClass("Sheet_Design",
          slots = list(
            data = "data.frame",
            rowVars = "list",
@@ -22,48 +22,77 @@ setClass("Sheet",
 )
 
 #--------------------------
-sheets <- list(
-  new("Sheet", data = mtcars, rowVars = list("gear"), colVars = list("vs", "am", "carb"))
+sheet_designs <- list(
+  new("Sheet_Design", data = mtcars, rowVars = list("gear"), colVars = list("vs", "am", "carb")),
+  new("Sheet_Design", data = starwars, rowVars = list("eye_color"), colVars = list("homeworld", "gender"))
 )
 #--------------------------
-Sheet_Maker <- function(sheet){
+Workbook_Maker <- function(){
   
-  for (i in sheet@rowVars) {
-    Table_Maker(sheet, i)
+  workbook <- list()
+  for (sheet_design in sheet_designs) {
+    sheet <- Sheet_Maker(sheet_design)
+    workbook <- c(workbook,  list(sheet))
   }
+
+  return(workbook)
+}
+
+#--------------------------
+Sheet_Maker <- function(sheet_design){
+  
+  tables <- list()
+  for (rowVar in sheet_design@rowVars) {
+    table <- Table_Maker(sheet_design, rowVar)
+    tables <- c(tables, list(table))
+  }
+  return(tables)
   
 }
 #--------------------------
-Table_Maker <- function(sheet, current_rowVar){
+Table_Maker <- function(sheet_design, current_rowVar){
   #have the first two columns be Overall and Net
   
-  table <- data.frame()
+  data <- sheet_design@data
   
-  for (i in sheet@colVars) {
-    
-    subtable <- Subtable_Maker(sheet, current_rowVar, i)
-
-    if(i == sheet@colVars[1]){
-      table <- subtable
-    }else{
-      table <- merge(table, subtable, by = "Column %", all = T)
-    }
-  }
+  #Overall
+  overallTable <- as.data.frame(prop.table(table(data[[current_rowVar]])) * 100)
+  overallTable$Freq <- round(overallTable$Freq)
+  colnames(overallTable) <- c("Column %", "Overall")
+  overallTable <- format(overallTable, justify = "right")
+  overallTable <- apply(overallTable, 2, trimws)
+  
+  #Net
+  netData <- data[complete.cases(data[, unlist(sheet_design@colVars)]), ]
+  netTable <- as.data.frame(prop.table(table(netData[[current_rowVar]])) * 100)
+  netTable$Freq <- round(netTable$Freq)
+  colnames(netTable) <- c("Column %", "Net")
+  netTable <- format(netTable, justify = "right")
+  netTable <- apply(netTable, 2, trimws)
+  
+  table <- merge(overallTable, netTable, by = "Column %", all = T)
   
   print(table)
   
+  for (colVar in sheet_design@colVars) {
+    
+    subtable <- Subtable_Maker(sheet_design, current_rowVar, colVar)
+    table <- merge(table, subtable, by = "Column %", all = T)
+  }
+  
+  return(table)
+  
 }
 #--------------------------
-Subtable_Maker <- function(sheet, current_rowVar, current_colVar){ 
+Subtable_Maker <- function(sheet_design, current_rowVar, current_colVar){ 
   
-  data <- sheet@data
+  data <- sheet_design@data
 
   subtable <- xtabs(~data[[current_rowVar]]+data[[current_colVar]],data=data)
-
-  subtable_mean <- mean(subtable)
   
   chisq <- chisq.test(subtable)
   std_res <- chisq$stdres
+  expected <- chisq$expected
   subtable <- prop.table(subtable, margin = 2)
   subtable <- apply(subtable, 2, round, digits = 2)
   subtable <- subtable * 100
@@ -71,12 +100,11 @@ Subtable_Maker <- function(sheet, current_rowVar, current_colVar){
   subtable <- format(subtable, justify = "right")
   subtable <- apply(subtable, 2, trimws)
   
-  
-  if(subtable_mean >= 4){ #4 is 80% o 5, and supposedly you need 80% of cells to be 5 or more
-    subtable[std_res > 1.96 & std_res != "NaN"] <- paste(subtable[std_res > 1.96 & std_res != "NaN"], intToUtf8(8593))
-    subtable[std_res < -1.96 & std_res != "NaN"] <- paste(subtable[std_res < -1.96 & std_res != "NaN"], intToUtf8(8595))
-  }
-  
+  upIndices <- std_res > 1.96 & std_res != "NAN" & expected > 4
+  downIndices <- std_res < -1.96 & std_res != "NAN" & expected > 4
+  subtable[upIndices] <- paste(subtable[upIndices], intToUtf8(8593))
+  subtable[downIndices] <- paste(subtable[downIndices], intToUtf8(8593))
+
   subtable <- as.data.frame(subtable)
   
   colnames(subtable) <- paste(current_colVar, colnames(subtable), sep = '.')
@@ -88,12 +116,21 @@ Subtable_Maker <- function(sheet, current_rowVar, current_colVar){
 #--------------------------
 #--------------------------
 
-for (sheet in sheets) {
-  Sheet_Maker(sheet)
-}
+workbook <- Workbook_Maker()
 
+df <- data.frame(A = c(1, 2, NA, 4),
+                 B = c(NA, 5, 6, 7),
+                 C = c(8, 9, 10, NA),
+                 D = c(11, NA, 13, 14))
 
+# Specify the three specific columns
+specific_columns <- c("A", "B", "C")
 
+# Extract rows without missing values in specific columns
+filtered_df <- df[complete.cases(df[, specific_columns]), ]
+
+# Print the filtered dataframe
+print(filtered_df)
 
 
 
