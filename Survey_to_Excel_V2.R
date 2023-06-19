@@ -20,7 +20,13 @@ setClass("Sheet_Design",
            colVars = "list"
          )
 )
-
+setClass("Table",
+         slots = list(
+           title = "character",
+           table = "data.frame",
+           footer = "character"
+         )
+)
 #--------------------------
 sheet_designs <- list(
   new("Sheet_Design", data = mtcars, rowVars = list("gear"), colVars = list("vs", "am", "carb")),
@@ -52,11 +58,6 @@ Sheet_Maker <- function(sheet_design){
 #--------------------------
 Table_Maker <- function(sheet_design, current_rowVar){
   
-  ########
-  #I MADE IT SO IT FILTERS THE DATA BY ROWS THAT HAVE ANSWERED THE colVars - I THINK THAT'S RIGHT
-  #IS THAT WHAT Q DOES? - i think so...
-  ########
-  
   data <- sheet_design@data
   data <- data[complete.cases(data[, unlist(sheet_design@colVars)]), ]
   
@@ -72,7 +73,12 @@ Table_Maker <- function(sheet_design, current_rowVar){
     table <- merge(table, subtable, by = "Column %", all = T)
   }
   
-  #MAYBE LOOK AT ADDING A TOTAL ROW AT THE BOTTOM
+  table$Net[which(table$`Column %` == "TOTAL n")] <- sum(table(data[[current_rowVar]]))
+  total_row <- table[table[, 1] == "TOTAL n", ]
+  table <- table[-which(table[, 1] == "TOTAL n"), ]
+  table <- rbind(table, total_row)
+
+  table[-nrow(table), -1] <- apply(table[-nrow(table), -1], 2, function(x) paste0(x, "%"))
   
   return(table)
   
@@ -106,6 +112,10 @@ Subtable_Maker <- function(sheet_design, current_rowVar, current_colVar){
   
   subtable <- rownames_to_column(subtable, "Column %")
   
+  subtable <- rbind(subtable, c("TOTAL n", colSums(chisq$observed)))
+  
+  print(subtable)
+  
   return(subtable)
 }
 #--------------------------
@@ -114,7 +124,4 @@ Subtable_Maker <- function(sheet_design, current_rowVar, current_colVar){
 workbook <- Workbook_Maker()
 
 
-mtcars <- as.data.frame(mtcars)
-
-write.csv(sw, file = "sw.csv")
 
