@@ -20,7 +20,7 @@ setClass("Sheet_Design",
            colVars = "list"
          )
 )
-setClass("Table",
+setClass("Table_Group",
          slots = list(
            title = "character",
            table = "data.frame",
@@ -36,30 +36,34 @@ sheet_designs <- list(
 Workbook_Maker <- function(){
   
   workbook <- list()
-  for (sheet_design in sheet_designs) {
-    sheet <- Sheet_Maker(sheet_design)
-    workbook <- c(workbook,  list(sheet))
+  for (sheetDesign in sheet_designs) {
+    sheet <- Sheet_Maker(sheetDesign)
+    workbook <- c(workbook,  sheet)
   }
 
   return(workbook)
 }
 
 #--------------------------
-Sheet_Maker <- function(sheet_design){
+Sheet_Maker <- function(sheetDesign){
   
   tables <- list()
-  for (rowVar in sheet_design@rowVars) {
-    table <- Table_Maker(sheet_design, rowVar)
-    tables <- c(tables, list(table))
+  for (rowVar in sheetDesign@rowVars) {
+    title <- rowVar
+    table <- Table_Maker(sheetDesign, rowVar)
+    footer <- Footer_Maker(sheetDesign, rowVar)
+      
+    tableGroup <- new("Table_Group", title = title, table = table, footer = footer)
+    tables <- c(tables, tableGroup)
   }
   return(tables)
   
 }
 #--------------------------
-Table_Maker <- function(sheet_design, current_rowVar){
+Table_Maker <- function(sheetDesign, current_rowVar){
   
-  data <- sheet_design@data
-  data <- data[complete.cases(data[, unlist(sheet_design@colVars)]), ]
+  data <- sheetDesign@data
+  data <- data[complete.cases(data[, unlist(sheetDesign@colVars)]), ]
   
   table <- as.data.frame(prop.table(table(data[[current_rowVar]])) * 100)
   table$Freq <- round(table$Freq)
@@ -67,9 +71,9 @@ Table_Maker <- function(sheet_design, current_rowVar){
   table <- format(table, justify = "right")
   table <- apply(table, 2, trimws)
   
-  for (colVar in sheet_design@colVars) {
+  for (colVar in sheetDesign@colVars) {
     
-    subtable <- Subtable_Maker(sheet_design, current_rowVar, colVar)
+    subtable <- Subtable_Maker(sheetDesign, current_rowVar, colVar)
     table <- merge(table, subtable, by = "Column %", all = T)
   }
   
@@ -83,10 +87,10 @@ Table_Maker <- function(sheet_design, current_rowVar){
   
 }
 #--------------------------
-Subtable_Maker <- function(sheet_design, current_rowVar, current_colVar){ 
+Subtable_Maker <- function(sheetDesign, current_rowVar, current_colVar){ 
   
-  data <- sheet_design@data
-  data <- data[complete.cases(data[, unlist(sheet_design@colVars)]), ]
+  data <- sheetDesign@data
+  data <- data[complete.cases(data[, unlist(sheetDesign@colVars)]), ]
 
   subtable <- xtabs(~data[[current_rowVar]]+data[[current_colVar]],data=data)
   
@@ -114,9 +118,16 @@ Subtable_Maker <- function(sheet_design, current_rowVar, current_colVar){
   
   subtable <- rbind(subtable, c("TOTAL n", colSums(chisq$observed)))
   
-  print(subtable)
-  
   return(subtable)
+}
+#--------------------------
+Footer_Maker <- function(sheetDesign, current_rowVar){ 
+  
+  data <- sheetDesign@data
+  data <- data[complete.cases(data[, unlist(sheetDesign@colVars)]), ]
+  
+  return(paste0("Total n = ", nrow(data), "; ", nrow(sheetDesign@data)-nrow(data), " missing" ))
+  
 }
 #--------------------------
 #--------------------------
