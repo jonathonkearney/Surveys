@@ -77,8 +77,7 @@ Table_Maker <- function(sheet_design, current_rowVar){
   total_row <- table[table[, 1] == "TOTAL n", ]
   table <- table[-which(table[, 1] == "TOTAL n"), ]
   table <- rbind(table, total_row)
-
-  table[-nrow(table), -1] <- apply(table[-nrow(table), -1], 2, function(x) paste0(x, "%"))
+  table$Net[-nrow(table)] <- paste0(table$Net[-nrow(table)], "%")
   
   return(table)
   
@@ -103,9 +102,10 @@ Subtable_Maker <- function(sheet_design, current_rowVar, current_colVar){
   
   upIndices <- std_res > 1.96 & std_res != "NAN" & expected > 4
   downIndices <- std_res < -1.96 & std_res != "NAN" & expected > 4
-  subtable[upIndices] <- paste(subtable[upIndices], intToUtf8(8593))
-  subtable[downIndices] <- paste(subtable[downIndices], intToUtf8(8593))
-
+  subtable[upIndices] <- paste0(subtable[upIndices], "% ", intToUtf8(8593))
+  subtable[downIndices] <- paste0(subtable[downIndices], "% ", intToUtf8(8593))
+  subtable[!upIndices & !downIndices] <- paste0(subtable[!upIndices & !downIndices], "%")
+  
   subtable <- as.data.frame(subtable)
   
   colnames(subtable) <- paste(current_colVar, colnames(subtable), sep = '.')
