@@ -51,6 +51,8 @@ Main <- function(){
   workbook <- Workbook_Maker()
   
   Printer(workbook)
+  
+  saveWorkbook(wb, filename, overwrite = TRUE)
 }
 #--------------------------
 Workbook_Maker <- function(){
@@ -156,7 +158,9 @@ Printer <- function(workbook){
   
   for(i in 1:length(workbook@sheets)){
     
-    print(i)
+    sheetName <- workbook@sheets[[i]]@sheetName
+    
+    addWorksheet(wb, sheetName = sheetName)
     
     for(j in 1:length(workbook@sheets[[i]]@tableGroups)){
 
@@ -174,17 +178,82 @@ Printer <- function(workbook){
       tableRowsStart <- tableHeaderRow+ 1
       tableRowsEnd <- tableRowsStart + nrow(table) - 1
       tableColsEnd <- length(table)
+      footerRow <- tableRowsEnd + 1
       
       ######## ADD TOC HYPERLINK ######## 
       
-      # writeFormula(wb, sheet = sheetname, startCol = 1, startRow = tocrow,
+      # writeFormula(wb, sheet = sheetName, startCol = 1, startRow = tocRow,
       #              x = makeHyperlinkString(sheet = "Table of Contents", col = 1, row = 1, text = "Back to ToC"))
+
+      ######## ADD TITLE ########
       
+      writeData(wb, sheetName, paste(str_to_title(title), " by Banner"), startCol = 1, startRow = headerRow)
+      addStyle(wb, sheetName, cols = 1, rows = headerRow, style = createStyle(textDecoration = "Bold"))
       
+      ######## ADD SPANS ########
+      
+      spans <- names(table)[-c(1,2)]
+      spans <- sub("\\..*", "", spans)
+      currentSpan <- ""
+
+      for (k in 1:length(spans)) {
+        if(k == 1){ currentSpan <- spans[k]}
+        else{
+          if(spans[k] == currentSpan){spans[k] <- ""}
+          else{currentSpan <- spans[k]}
+        }
+      }
+      for (k in 1:length(spans)) {
+        writeData(wb, sheetName, str_to_title(spans[k]), startCol = k+2, startRow = spanRow)
+      }
+      
+      ####### ADD TABLE ########
+      
+      writeData(wb, sheetName, table, startRow = tableHeaderRow)
+      
+      colnames <- sub(".*\\.", "", colnames(table))
+      for (k in 1:length(colnames)) {
+        writeData(wb, sheetName, colnames[[k]], startCol = k, startRow = tableHeaderRow)
+      }
+      
+      writeData(wb, sheetName, "Column %", startCol = 1, startRow = tableHeaderRow)
+      
+      ####### ADD FOOTER ########
+      
+      writeData(wb, sheetName, footer, startCol = 1, startRow = footerRow)
+
+      ####### ADD STYLES ########
+      rowColour <- "#dee3e2"
+      boldStyle <- createStyle(textDecoration = "Bold")
+      shadeAlignStyle <- createStyle(fgFill = "#d5dbda", halign = "right")
+      boldShadeAlignStyle <- createStyle(textDecoration = "Bold", fgFill = rowColour, halign = "right")
+      alignStyle <- createStyle(halign = "right")
+      boldAlignStyle <- createStyle(textDecoration = "Bold", halign = "right")
+      
+      addStyle(wb, sheetName, cols = 1:tableColsEnd, rows = tableHeaderRow, style = boldStyle)
+      addStyle(wb, sheetName, cols = 1:tableColsEnd, rows = spanRow, style = boldStyle)
+      addStyle(wb, sheetName, cols = 1, rows = tableRowsStart:tableRowsEnd, style = boldStyle)
+      
+      for (i in seq(from = tableRowsStart, to = tableRowsEnd)) {
+        if(i %% 2 != 0){ #odd
+          addStyle(wb, sheetName, cols = 1:tableColsEnd, rows = i, style = shadeAlignStyle)
+          addStyle(wb, sheetName, cols = 1, rows = i, style = boldShadeAlignStyle)
+        }
+        else{
+          addStyle(wb, sheetName, cols = 1:tableColsEnd, rows = i, style = alignStyle)
+          addStyle(wb, sheetName, cols = 1, rows = i, style = boldAlignStyle)
+        }
+      }
+      
+      ######## ADD CONDITIONAL FORMATTING ########
+      
+      upArrowFormat <- createStyle(fontColour = "blue")
+      downArrowFormat <- createStyle(fontColour = "red")
+      
+      conditionalFormatting(wb, sheetName, type = "contains", rule = "↑", cols = 1:1000, rows = 1:1000, style = upArrowFormat)
+      conditionalFormatting(wb, sheetName, type = "contains", rule = "↓", cols = 1:1000, rows = 1:1000, style = downArrowFormat) 
     }
-    
   }
-  
 }
 
 
