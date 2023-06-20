@@ -20,6 +20,16 @@ setClass("Sheet_Design",
            colVars = "list"
          )
 )
+setClass("Workbook",
+         slots = list(
+           sheets = "list"
+         )
+)
+setClass("Sheet",
+         slots = list(
+           tableGroups = "list"
+         )
+)
 setClass("Table_Group",
          slots = list(
            title = "character",
@@ -33,12 +43,18 @@ sheet_designs <- list(
   new("Sheet_Design", data = starwars, rowVars = list("eye_color"), colVars = list("homeworld", "gender"))
 )
 #--------------------------
+Main <- function(){
+  workbook <- Workbook_Maker()
+  
+  Printer(workbook)
+}
+#--------------------------
 Workbook_Maker <- function(){
   
-  workbook <- list()
+  workbook <- new("Workbook", sheets = list())
   for (sheetDesign in sheet_designs) {
     sheet <- Sheet_Maker(sheetDesign)
-    workbook <- c(workbook,  sheet)
+    workbook@sheets <- c(workbook@sheets, sheet)
   }
 
   return(workbook)
@@ -47,16 +63,16 @@ Workbook_Maker <- function(){
 #--------------------------
 Sheet_Maker <- function(sheetDesign){
   
-  tables <- list()
+  sheet <- new("Sheet", tableGroups = list())
   for (rowVar in sheetDesign@rowVars) {
     title <- rowVar
     table <- Table_Maker(sheetDesign, rowVar)
     footer <- Footer_Maker(sheetDesign, rowVar)
       
     tableGroup <- new("Table_Group", title = title, table = table, footer = footer)
-    tables <- c(tables, tableGroup)
+    sheet@tableGroups <- c(sheet@tableGroups, tableGroup)
   }
-  return(tables)
+  return(sheet)
   
 }
 #--------------------------
@@ -130,9 +146,42 @@ Footer_Maker <- function(sheetDesign, current_rowVar){
   
 }
 #--------------------------
+Printer <- function(workbook){
+  
+  currentRow <- 1
+  
+  for(i in 1:length(workbook@sheets)){
+    
+    print(i)
+    
+    for(j in 1:length(workbook@sheets[[i]]@tableGroups)){
+
+      print(j)
+      
+      title <- workbook@sheets[[i]]@tableGroups[[j]]@title
+      table <- workbook@sheets[[i]]@tableGroups[[j]]@table
+      footer <- workbook@sheets[[i]]@tableGroups[[j]]@footer
+      
+      tocRow <- currentRow
+      headerRow <- tocRow + 1
+      spanRow <- headerRow + 1
+      tableHeaderRow <- spanRow + 1
+      tableRowsStart <- tableHeaderRow+ 1
+      tableRowsEnd <- tableRowsStart + nrow(table) - 1
+      tableColsEnd <- length(table)
+
+    }
+    
+  }
+  
+}
+
+
 #--------------------------
 
 workbook <- Workbook_Maker()
 
+#access it by going workbook@sheets[[1]]@tableGroups[[1]]@table
 
+Main()
 
