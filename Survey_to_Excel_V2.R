@@ -11,23 +11,23 @@ setwd("C:/Users/JoeKea/OneDrive - NZ Transport Agency/R/Survey")
 rm(list = ls())
 
 #--------------------------
-
-#--------------------------
 setClass("Sheet_Design",
          slots = list(
            data = "data.frame",
            rowVars = "list",
-           colVars = "list"
+           colVars = "list",
+           sheetName = "character"
          )
 )
-setClass("Workbook",
+setClass("Work_Book", #beacause workbook is being used by openxlsx... grr
          slots = list(
            sheets = "list"
          )
 )
 setClass("Sheet",
          slots = list(
-           tableGroups = "list"
+           tableGroups = "list",
+           sheetName = "character"
          )
 )
 setClass("Table_Group",
@@ -38,9 +38,13 @@ setClass("Table_Group",
          )
 )
 #--------------------------
+filename <- "testV2.xlsx"
+
+wb <- createWorkbook()
+
 sheet_designs <- list(
-  new("Sheet_Design", data = mtcars, rowVars = list("gear"), colVars = list("vs", "am", "carb")),
-  new("Sheet_Design", data = starwars, rowVars = list("eye_color"), colVars = list("homeworld", "gender"))
+  new("Sheet_Design", data = mtcars, rowVars = list("gear"), colVars = list("vs", "am", "carb"), sheetName = "mtcars"),
+  new("Sheet_Design", data = starwars, rowVars = list("eye_color"), colVars = list("homeworld", "gender"), sheetName = "starwars")
 )
 #--------------------------
 Main <- function(){
@@ -51,7 +55,7 @@ Main <- function(){
 #--------------------------
 Workbook_Maker <- function(){
   
-  workbook <- new("Workbook", sheets = list())
+  workbook <- new("Work_Book", sheets = list())
   for (sheetDesign in sheet_designs) {
     sheet <- Sheet_Maker(sheetDesign)
     workbook@sheets <- c(workbook@sheets, sheet)
@@ -63,7 +67,7 @@ Workbook_Maker <- function(){
 #--------------------------
 Sheet_Maker <- function(sheetDesign){
   
-  sheet <- new("Sheet", tableGroups = list())
+  sheet <- new("Sheet", tableGroups = list(), sheetName = sheetDesign@sheetName)
   for (rowVar in sheetDesign@rowVars) {
     title <- rowVar
     table <- Table_Maker(sheetDesign, rowVar)
@@ -161,6 +165,7 @@ Printer <- function(workbook){
       title <- workbook@sheets[[i]]@tableGroups[[j]]@title
       table <- workbook@sheets[[i]]@tableGroups[[j]]@table
       footer <- workbook@sheets[[i]]@tableGroups[[j]]@footer
+      sheetName <- workbook@sheets[[i]]@sheetName
       
       tocRow <- currentRow
       headerRow <- tocRow + 1
@@ -169,7 +174,13 @@ Printer <- function(workbook){
       tableRowsStart <- tableHeaderRow+ 1
       tableRowsEnd <- tableRowsStart + nrow(table) - 1
       tableColsEnd <- length(table)
-
+      
+      ######## ADD TOC HYPERLINK ######## 
+      
+      # writeFormula(wb, sheet = sheetname, startCol = 1, startRow = tocrow,
+      #              x = makeHyperlinkString(sheet = "Table of Contents", col = 1, row = 1, text = "Back to ToC"))
+      
+      
     }
     
   }
